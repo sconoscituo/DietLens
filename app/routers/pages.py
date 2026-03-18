@@ -114,3 +114,15 @@ async def goals_page(request: Request, db: AsyncSession = Depends(get_db)):
             "today": date.today().isoformat(),
         },
     )
+
+
+@router.get("/exercise", response_class=HTMLResponse)
+async def exercise_page(request: Request):
+    """운동 기록 페이지"""
+    return templates.TemplateResponse(
+        "exercise.html",
+        {
+            "request": request,
+            "today": date.today().isoformat(),
+        },
+    )

@@ -39,6 +39,6 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """테이블 생성 및 초기 데이터 로드"""
-    from app.models import Food, Meal, MealItem, DailyLog, Goal  # noqa
+    from app.models import Food, Meal, MealItem, DailyLog, Goal, WaterLog, Exercise, WeightLog  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

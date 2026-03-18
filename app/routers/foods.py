@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func
 from typing import List, Optional
+import httpx
 from app.database import get_db
 from app.models.food import Food
 from app.schemas.food import FoodCreate, FoodResponse, FoodUpdate, FoodSearchResult
@@ -100,3 +101,62 @@ async def delete_food(food_id: int, db: AsyncSession = Depends(get_db)):
     if not food:
         raise HTTPException(status_code=404, detail="삭제할 수 없는 음식입니다.")
     await db.delete(food)
+
+
+@router.post("/barcode")
+async def lookup_barcode(barcode: str = Query(..., description="바코드 번호")):
+    """
+    바코드 번호로 Open Food Facts API에서 영양 정보를 조회합니다.
+    결과를 DietLens 음식 형식으로 변환하여 반환합니다.
+    """
+    url = f"https://world.openfoodfacts.org/api/v2/product/{barcode}.json"
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, headers={"User-Agent": "DietLens/1.0"})
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="바코드 정보를 찾을 수 없습니다.")
+
+        data = resp.json()
+        if data.get("status") != 1:
+            raise HTTPException(status_code=404, detail="해당 바코드의 제품 정보가 없습니다.")
+
+        product = data.get("product", {})
+        nutriments = product.get("nutriments", {})
+
+        # 제품명: 한국어 우선, 없으면 영문명
+        name = (
+            product.get("product_name_ko")
+            or product.get("product_name")
+            or product.get("product_name_en")
+            or "알 수 없는 제품"
+        )
+        serving_size = float(product.get("serving_size_imported") or 100)
+
+        # Open Food Facts 영양 필드 (100g 기준)
+        calories = float(nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal") or 0)
+        carbs = float(nutriments.get("carbohydrates_100g") or nutriments.get("carbohydrates") or 0)
+        protein = float(nutriments.get("proteins_100g") or nutriments.get("proteins") or 0)
+        fat = float(nutriments.get("fat_100g") or nutriments.get("fat") or 0)
+        fiber = float(nutriments.get("fiber_100g") or nutriments.get("fiber") or 0)
+        sodium = float(nutriments.get("sodium_100g") or nutriments.get("sodium") or 0) * 1000  # g → mg
+
+        return {
+            "barcode": barcode,
+            "name": name,
+            "name_en": product.get("product_name_en") or product.get("product_name"),
+            "brand": product.get("brands", ""),
+            "category": product.get("categories_tags", [""])[0].replace("en:", "").replace("-", " ") if product.get("categories_tags") else "",
+            "serving_size": 100.0,
+            "serving_unit": "g",
+            "calories": round(calories, 1),
+            "carbohydrates": round(carbs, 1),
+            "protein": round(protein, 1),
+            "fat": round(fat, 1),
+            "fiber": round(fiber, 1),
+            "sodium": round(sodium, 1),
+            "image_url": product.get("image_front_small_url") or product.get("image_url") or "",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"바코드 조회 중 오류가 발생했습니다: {str(e)}")

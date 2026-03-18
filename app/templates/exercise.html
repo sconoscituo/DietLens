@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}운동 기록{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 헤더 -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">🏃 운동 기록</h1>
+      <p class="text-gray-500 text-sm mt-1">운동을 기록하고 소모 칼로리를 확인하세요</p>
+    </div>
+    <input type="date" id="exerciseDate" value="{{ today }}"
+      class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+  </div>
+
+  <!-- 오늘 운동 현황 -->
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-400 uppercase tracking-wide">소모 칼로리</p>
+      <p class="text-3xl font-bold text-orange-500 mt-1" id="summaryCalories">0</p>
+      <p class="text-xs text-gray-400 mt-1">kcal</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-400 uppercase tracking-wide">총 운동 시간</p>
+      <p class="text-3xl font-bold text-blue-500 mt-1" id="summaryDuration">0</p>
+      <p class="text-xs text-gray-400 mt-1">분</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 col-span-2 md:col-span-1">
+      <p class="text-xs text-gray-400 uppercase tracking-wide">운동 횟수</p>
+      <p class="text-3xl font-bold text-emerald-500 mt-1" id="summaryCount">0</p>
+      <p class="text-xs text-gray-400 mt-1">회</p>
+    </div>
+  </div>
+
+  <!-- 운동 기록 입력 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-4">운동 추가</h2>
+
+    <!-- 체중 입력 (칼로리 계산용) -->
+    <div class="mb-4">
+      <label class="text-sm text-gray-600 block mb-1">내 체중 (kg) <span class="text-gray-400 text-xs">— 칼로리 계산에 사용</span></label>
+      <input type="number" id="userWeight" value="70" min="20" max="300" step="0.1"
+        class="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        oninput="recalcCalories()" />
+    </div>
+
+    <!-- 운동 종류 선택 -->
+    <p class="text-sm text-gray-600 mb-2">운동 종류</p>
+    <div id="exerciseTypeGrid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 mb-4"></div>
+
+    <!-- 시간 입력 및 결과 -->
+    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+      <div class="flex-1">
+        <label class="text-sm text-gray-600 block mb-1">운동 시간 (분)</label>
+        <input type="number" id="durationMin" value="30" min="1" max="600"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          oninput="recalcCalories()" />
+      </div>
+      <div class="flex-1">
+        <label class="text-sm text-gray-600 block mb-1">소모 칼로리 (자동 계산)</label>
+        <div class="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-sm font-bold text-orange-600">
+          <span id="calcCaloriesDisplay">0</span> kcal
+        </div>
+      </div>
+      <div class="flex-1">
+        <label class="text-sm text-gray-600 block mb-1">메모 (선택)</label>
+        <input type="text" id="exerciseMemo" placeholder="예: 공원 러닝 3바퀴"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+      </div>
+    </div>
+
+    <button onclick="addExercise()" id="addExerciseBtn"
+      class="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-medium transition">
+      + 운동 기록 저장
+    </button>
+  </div>
+
+  <!-- 오늘 운동 기록 목록 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-4">오늘 운동 기록</h2>
+    <div id="exerciseList" class="space-y-2">
+      <p class="text-sm text-gray-300 text-center py-6" id="exerciseEmptyMsg">아직 기록된 운동이 없습니다</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const EXERCISE_TYPES = [];  // API에서 로드
+  let selectedExercise = null;
+
+  // 날짜 변경 시 데이터 새로고침
+  document.getElementById('exerciseDate').addEventListener('change', function() {
+    loadSummary();
+  });
+
+  async function loadExerciseTypes() {
+    try {
+      const res = await fetch('/api/exercise/types');
+      const types = await res.json();
+      EXERCISE_TYPES.push(...types);
+      renderTypeGrid(types);
+      if (types.length > 0) {
+        selectExerciseType(types[0]);
+      }
+    } catch (e) { console.error('운동 종류 로드 실패:', e); }
+  }
+
+  function renderTypeGrid(types) {
+    const grid = document.getElementById('exerciseTypeGrid');
+    grid.innerHTML = types.map(t => `
+      <button onclick="selectExerciseType(${JSON.stringify(t).replace(/"/g, '&quot;')})"
+        id="extype_${t.name}"
+        class="exercise-type-btn py-2 px-1 rounded-xl border-2 border-gray-100 text-xs font-medium text-gray-600
+               hover:border-emerald-300 transition flex flex-col items-center gap-1">
+        <span class="text-xl">${t.icon}</span>
+        <span>${escapeHtml(t.name)}</span>
+      </button>
+    `).join('');
+  }
+
+  function selectExerciseType(type) {
+    selectedExercise = type;
+    document.querySelectorAll('.exercise-type-btn').forEach(btn => {
+      btn.classList.remove('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+      btn.classList.add('border-gray-100', 'text-gray-600');
+    });
+    const btn = document.getElementById('extype_' + type.name);
+    if (btn) {
+      btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+      btn.classList.remove('border-gray-100', 'text-gray-600');
+    }
+    recalcCalories();
+  }
+
+  async function recalcCalories() {
+    if (!selectedExercise) return;
+    const duration = parseInt(document.getElementById('durationMin').value) || 0;
+    const weight = parseFloat(document.getElementById('userWeight').value) || 70;
+    if (duration <= 0) {
+      document.getElementById('calcCaloriesDisplay').textContent = '0';
+      return;
+    }
+    try {
+      const params = new URLSearchParams({
+        exercise_type: selectedExercise.name,
+        duration_min: duration,
+        weight_kg: weight,
+      });
+      const res = await fetch(`/api/exercise/calc-calories?${params}`);
+      const data = await res.json();
+      document.getElementById('calcCaloriesDisplay').textContent = data.calories_burned;
+    } catch (e) {
+      // MET 계산 fallback: MET × weight × (duration/60)
+      const met = selectedExercise.met || 4.0;
+      const cal = Math.round(met * weight * (duration / 60) * 10) / 10;
+      document.getElementById('calcCaloriesDisplay').textContent = cal;
+    }
+  }
+
+  async function addExercise() {
+    if (!selectedExercise) {
+      showToast('운동 종류를 선택해주세요.', 'error');
+      return;
+    }
+    const targetDate = document.getElementById('exerciseDate').value;
+    const duration = parseInt(document.getElementById('durationMin').value) || 0;
+    const weight = parseFloat(document.getElementById('userWeight').value) || 70;
+    const memo = document.getElementById('exerciseMemo').value.trim() || null;
+
+    if (duration <= 0) {
+      showToast('운동 시간을 입력해주세요.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('addExerciseBtn');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
+    try {
+      const res = await fetch('/api/exercise/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exercise_date: targetDate,
+          exercise_type: selectedExercise.name,
+          duration_min: duration,
+          weight_kg: weight,
+          memo: memo,
+        }),
+      });
+      if (res.ok) {
+        showToast('운동이 기록되었습니다! 💪');
+        document.getElementById('exerciseMemo').value = '';
+        document.getElementById('durationMin').value = '30';
+        await loadSummary();
+      } else {
+        const err = await res.json();
+        showToast('저장 실패: ' + (err.detail || '오류'), 'error');
+      }
+    } catch (e) {
+      showToast('서버 오류', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ 운동 기록 저장';
+    }
+  }
+
+  async function loadSummary() {
+    const targetDate = document.getElementById('exerciseDate').value;
+    try {
+      const res = await fetch(`/api/exercise/summary/${targetDate}`);
+      const data = await res.json();
+      document.getElementById('summaryCalories').textContent = data.total_calories_burned;
+      document.getElementById('summaryDuration').textContent = data.total_duration_min;
+      document.getElementById('summaryCount').textContent = data.records.length;
+      renderExerciseList(data.records);
+    } catch (e) {
+      console.error('운동 현황 로드 실패:', e);
+    }
+  }
+
+  function renderExerciseList(records) {
+    const list = document.getElementById('exerciseList');
+    if (records.length === 0) {
+      list.innerHTML = '<p class="text-sm text-gray-300 text-center py-6" id="exerciseEmptyMsg">아직 기록된 운동이 없습니다</p>';
+      return;
+    }
+    list.innerHTML = records.map(r => `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-medium text-gray-800">${escapeHtml(r.exercise_type)}</p>
+          <p class="text-xs text-gray-400">${r.duration_min}분 · ${r.calories_burned} kcal 소모${r.memo ? ' · ' + escapeHtml(r.memo) : ''}</p>
+        </div>
+        <button onclick="deleteExercise(${r.id})" class="text-red-400 hover:text-red-500 text-lg ml-2">×</button>
+      </div>
+    `).join('');
+  }
+
+  async function deleteExercise(id) {
+    if (!confirm('운동 기록을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/exercise/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('삭제되었습니다.');
+        await loadSummary();
+      }
+    } catch (e) {
+      showToast('삭제 실패', 'error');
+    }
+  }
+
+  // 초기 로드
+  loadExerciseTypes();
+  loadSummary();
+</script>
+{% endblock %}

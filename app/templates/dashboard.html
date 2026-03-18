@@ -149,6 +149,101 @@
     </div>
   </div>
 
+  <!-- 물 섭취 + 운동 현황 위젯 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+    <!-- 물 섭취 위젯 -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-gray-700">💧 오늘 물 섭취</h2>
+        <span class="text-xs text-gray-400">목표 2000ml</span>
+      </div>
+      <!-- 프로그레스바 -->
+      <div class="mb-3">
+        <div class="flex justify-between text-xs text-gray-500 mb-1">
+          <span id="waterTotal">0 ml</span>
+          <span id="waterPercent">0%</span>
+        </div>
+        <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+          <div id="waterProgressBar"
+            class="h-4 bg-blue-400 rounded-full transition-all duration-500"
+            style="width: 0%"></div>
+        </div>
+      </div>
+      <!-- 빠른 추가 버튼 -->
+      <div class="flex gap-2 mt-3">
+        <button onclick="addWater(250)"
+          class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 py-2 rounded-xl text-sm font-medium transition">
+          +250ml
+        </button>
+        <button onclick="addWater(500)"
+          class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 py-2 rounded-xl text-sm font-medium transition">
+          +500ml
+        </button>
+        <button onclick="addWaterCustom()"
+          class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 py-2 rounded-xl text-sm font-medium transition">
+          직접 입력
+        </button>
+      </div>
+      <!-- 기록 목록 -->
+      <div id="waterLogs" class="mt-3 space-y-1 max-h-24 overflow-y-auto"></div>
+    </div>
+
+    <!-- 운동 현황 위젯 -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-gray-700">🏃 오늘 운동 현황</h2>
+        <a href="/exercise" class="text-xs text-emerald-500 hover:text-emerald-600">+ 기록 →</a>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div class="bg-orange-50 rounded-xl p-3 text-center">
+          <p class="text-xs text-gray-400">소모 칼로리</p>
+          <p class="text-2xl font-bold text-orange-500 mt-1"><span id="exerciseCalories">0</span></p>
+          <p class="text-xs text-gray-400">kcal</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-3 text-center">
+          <p class="text-xs text-gray-400">운동 시간</p>
+          <p class="text-2xl font-bold text-blue-500 mt-1"><span id="exerciseDuration">0</span></p>
+          <p class="text-xs text-gray-400">분</p>
+        </div>
+      </div>
+      <div id="exerciseList" class="space-y-1 max-h-24 overflow-y-auto">
+        <p class="text-xs text-gray-300 text-center py-2">오늘 운동 기록이 없습니다</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- AI 식단 추천 섹션 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <div>
+        <h2 class="font-semibold text-gray-700">🤖 AI 식단 추천</h2>
+        <p class="text-xs text-gray-400 mt-0.5">남은 칼로리 기반으로 다음 식사를 추천해드립니다</p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <input type="text" id="preferredFoods" placeholder="선호 음식 (예: 닭고기, 채소)"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 w-48" />
+        <button onclick="getRecommendation()" id="recommendBtn"
+          class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">
+          추천 받기
+        </button>
+      </div>
+    </div>
+    <!-- 추천 결과 영역 -->
+    <div id="recommendationResult" class="hidden">
+      <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-3">
+        <p class="text-sm text-emerald-700 font-medium" id="recommendSummary"></p>
+      </div>
+      <div id="recommendCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      <p class="text-xs text-gray-500 mt-3 bg-gray-50 rounded-lg p-3" id="recommendTips"></p>
+    </div>
+    <div id="recommendLoading" class="hidden text-center py-6">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <p class="text-sm text-gray-400 mt-2">AI가 식단을 분석하고 있습니다...</p>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -184,6 +279,123 @@
     }
   });
   {% endif %}
+
+  // ─── 물 섭취 위젯 ───
+  const TODAY_DATE = '{{ target_date }}';
+
+  async function loadWater() {
+    try {
+      const res = await fetch(`/api/water/summary/${TODAY_DATE}`);
+      const data = await res.json();
+      document.getElementById('waterTotal').textContent = data.total_ml + ' ml';
+      document.getElementById('waterPercent').textContent = data.percent + '%';
+      document.getElementById('waterProgressBar').style.width = data.percent + '%';
+      const logsDiv = document.getElementById('waterLogs');
+      if (data.logs.length === 0) {
+        logsDiv.innerHTML = '<p class="text-xs text-gray-300">아직 기록 없음</p>';
+      } else {
+        logsDiv.innerHTML = data.logs.map(l => `
+          <div class="flex justify-between items-center text-xs text-gray-500 py-0.5">
+            <span>💧 ${l.amount_ml}ml</span>
+            <button onclick="deleteWater(${l.id})" class="text-red-300 hover:text-red-400 ml-1">×</button>
+          </div>`).join('');
+      }
+    } catch (e) { console.error('물 섭취 로드 실패:', e); }
+  }
+
+  async function addWater(ml) {
+    try {
+      const res = await fetch('/api/water/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_date: TODAY_DATE, amount_ml: ml }),
+      });
+      if (res.ok) { showToast(`💧 ${ml}ml 추가!`); loadWater(); }
+    } catch (e) { showToast('저장 실패', 'error'); }
+  }
+
+  async function addWaterCustom() {
+    const ml = parseInt(prompt('섭취량(ml)을 입력하세요:', '200'));
+    if (!ml || ml <= 0) return;
+    await addWater(ml);
+  }
+
+  async function deleteWater(id) {
+    try {
+      await fetch(`/api/water/${id}`, { method: 'DELETE' });
+      loadWater();
+    } catch (e) { console.error(e); }
+  }
+
+  // ─── 운동 현황 위젯 ───
+  async function loadExercise() {
+    try {
+      const res = await fetch(`/api/exercise/summary/${TODAY_DATE}`);
+      const data = await res.json();
+      document.getElementById('exerciseCalories').textContent = data.total_calories_burned;
+      document.getElementById('exerciseDuration').textContent = data.total_duration_min;
+      const listDiv = document.getElementById('exerciseList');
+      if (data.records.length === 0) {
+        listDiv.innerHTML = '<p class="text-xs text-gray-300 text-center py-2">오늘 운동 기록이 없습니다</p>';
+      } else {
+        listDiv.innerHTML = data.records.map(r => `
+          <div class="flex justify-between items-center text-xs text-gray-600 bg-orange-50 rounded-lg px-3 py-1.5">
+            <span class="font-medium">${escapeHtml(r.exercise_type)}</span>
+            <span class="text-gray-400">${r.duration_min}분 · ${r.calories_burned}kcal</span>
+          </div>`).join('');
+      }
+    } catch (e) { console.error('운동 현황 로드 실패:', e); }
+  }
+
+  // ─── AI 식단 추천 ───
+  async function getRecommendation() {
+    const btn = document.getElementById('recommendBtn');
+    const loading = document.getElementById('recommendLoading');
+    const result = document.getElementById('recommendationResult');
+    const pref = document.getElementById('preferredFoods').value.trim();
+
+    btn.disabled = true;
+    loading.classList.remove('hidden');
+    result.classList.add('hidden');
+
+    try {
+      const params = new URLSearchParams({ target_date: TODAY_DATE });
+      if (pref) params.append('preferred_foods', pref);
+      const res = await fetch(`/api/recommendations/next-meal?${params}`);
+      const data = await res.json();
+      const rec = data.recommendation;
+
+      document.getElementById('recommendSummary').textContent = rec.summary || '';
+      document.getElementById('recommendTips').textContent = '💡 ' + (rec.tips || '');
+
+      const cards = document.getElementById('recommendCards');
+      if (rec.recommendations && rec.recommendations.length > 0) {
+        cards.innerHTML = rec.recommendations.map(r => `
+          <div class="bg-white border border-emerald-100 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">${escapeHtml(r.meal_type)}</span>
+              <span class="text-sm font-bold text-orange-500">${r.calories} kcal</span>
+            </div>
+            <p class="font-semibold text-gray-800 text-sm">${escapeHtml(r.food_name)}</p>
+            <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(r.amount)}</p>
+            <p class="text-xs text-gray-500 mt-2">${escapeHtml(r.reason)}</p>
+          </div>`).join('');
+      } else {
+        cards.innerHTML = '<p class="text-sm text-gray-400 col-span-3 text-center py-3">추천 결과가 없습니다.</p>';
+      }
+
+      result.classList.remove('hidden');
+    } catch (e) {
+      showToast('추천 로드 실패', 'error');
+    } finally {
+      btn.disabled = false;
+      loading.classList.add('hidden');
+    }
+  }
+
+  // 초기 로드
+  loadWater();
+  loadExercise();
 
   // 주간 칼로리 라인 차트
   const weeklyData = {{ dashboard.weekly | tojson }};
