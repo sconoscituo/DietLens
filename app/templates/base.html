@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}DietLens{% endblock %} - AI 식단 트래커</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- 커스텀 CSS -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#f0fdf4', 100:'#dcfce7', 200:'#bbf7d0', 300:'#86efac', 400:'#4ade80', 500:'#22c55e', 600:'#16a34a', 700:'#15803d', 800:'#166534', 900:'#14532d' },
+            diet: { light:'#d1fae5', DEFAULT:'#10b981', dark:'#065f46' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+  <!-- 네비게이션 바 -->
+  <nav class="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="flex items-center justify-between h-16">
+        <!-- 로고 -->
+        <a href="/" class="flex items-center gap-2 text-emerald-600 font-bold text-xl">
+          <span class="text-2xl">🥗</span>
+          <span>DietLens</span>
+        </a>
+
+        <!-- 네비게이션 링크 -->
+        <div class="hidden md:flex items-center gap-1">
+          <a href="/" class="nav-link {% if request.url.path == '/' %}nav-active{% endif %}">
+            🏠 대시보드
+          </a>
+          <a href="/log" class="nav-link {% if request.url.path == '/log' %}nav-active{% endif %}">
+            ✏️ 식사 기록
+          </a>
+          <a href="/analyze" class="nav-link {% if request.url.path == '/analyze' %}nav-active{% endif %}">
+            📸 AI 분석
+          </a>
+          <a href="/history" class="nav-link {% if request.url.path == '/history' %}nav-active{% endif %}">
+            📋 히스토리
+          </a>
+          <a href="/goals" class="nav-link {% if request.url.path == '/goals' %}nav-active{% endif %}">
+            🎯 목표
+          </a>
+        </div>
+
+        <!-- 모바일 메뉴 버튼 -->
+        <button id="mobileMenuBtn" class="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 모바일 메뉴 -->
+      <div id="mobileMenu" class="hidden md:hidden pb-3 border-t border-gray-100">
+        <a href="/" class="mobile-nav-link">🏠 대시보드</a>
+        <a href="/log" class="mobile-nav-link">✏️ 식사 기록</a>
+        <a href="/analyze" class="mobile-nav-link">📸 AI 분석</a>
+        <a href="/history" class="mobile-nav-link">📋 히스토리</a>
+        <a href="/goals" class="mobile-nav-link">🎯 목표 설정</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 메인 콘텐츠 -->
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="mt-12 py-6 border-t border-gray-200 bg-white">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
+      <p>🥗 DietLens - AI 식단 트래커 | Powered by Google Gemini Vision</p>
+    </div>
+  </footer>
+
+  <!-- 공통 JS -->
+  <script src="/static/js/app.js"></script>
+  <script>
+    // 모바일 메뉴 토글
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.toggle('hidden');
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

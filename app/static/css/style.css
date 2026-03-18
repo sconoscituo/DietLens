@@ -1,0 +1,85 @@
+/* DietLens 커스텀 스타일 */
+
+/* 네비게이션 링크 */
+.nav-link {
+  @apply px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition font-medium;
+}
+.nav-active {
+  @apply bg-emerald-50 text-emerald-700;
+}
+.mobile-nav-link {
+  @apply block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-50;
+}
+
+/* 폼 인풋 공통 스타일 */
+.form-input {
+  @apply w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 transition;
+}
+
+/* 카드 hover 효과 */
+.card-hover {
+  @apply hover:shadow-md hover:-translate-y-0.5 transition-all duration-200;
+}
+
+/* 진행바 애니메이션 */
+@keyframes progressFill {
+  from { width: 0; }
+  to { width: var(--progress); }
+}
+.progress-bar {
+  animation: progressFill 0.8s ease-out forwards;
+}
+
+/* 스크롤바 숨기기 (webkit) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 토스트 알림 */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+  white-space: nowrap;
+}
+.toast-success {
+  background: #10b981;
+  color: white;
+}
+.toast-error {
+  background: #ef4444;
+  color: white;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(1rem); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* 로딩 스피너 */
+.spinner {
+  border: 3px solid #f3f4f6;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 반응형 유틸 */
+@media (max-width: 640px) {
+  .mobile-full { width: 100%; }
+}

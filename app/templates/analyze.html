@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}AI 사진 분석{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-2xl mx-auto">
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">📸 AI 음식 사진 분석</h1>
+    <p class="text-gray-500 text-sm mt-1">음식 사진을 업로드하면 AI가 칼로리와 영양소를 자동으로 분석합니다</p>
+  </div>
+
+  <!-- 날짜 / 식사 타입 선택 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">식사 날짜</label>
+        <input type="date" id="analyzeDate" value="{{ today }}"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">식사 종류</label>
+        <select id="analyzeMealType"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+          <option value="아침">🌅 아침</option>
+          <option value="점심">☀️ 점심</option>
+          <option value="저녁">🌙 저녁</option>
+          <option value="간식">🍎 간식</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 이미지 업로드 영역 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div id="dropZone"
+      class="border-2 border-dashed border-gray-200 m-4 rounded-xl p-10 text-center cursor-pointer hover:border-emerald-300 hover:bg-emerald-50 transition"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="event.preventDefault(); this.classList.add('border-emerald-400')"
+      ondragleave="this.classList.remove('border-emerald-400')"
+      ondrop="handleDrop(event)">
+      <div id="dropContent">
+        <span class="text-5xl block mb-3">📷</span>
+        <p class="text-gray-600 font-medium">클릭하거나 이미지를 드래그하세요</p>
+        <p class="text-xs text-gray-400 mt-1">JPG, PNG, WEBP 지원 · 최대 10MB</p>
+      </div>
+      <img id="previewImg" class="hidden max-h-64 mx-auto rounded-lg object-contain" alt="미리보기" />
+    </div>
+    <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFileSelect(event)" />
+
+    <div class="px-4 pb-4 flex gap-2">
+      <button onclick="analyzeImage()" id="analyzeBtn"
+        class="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-medium transition flex items-center justify-center gap-2" disabled>
+        <span>🤖</span> AI 분석 시작
+      </button>
+      <button onclick="resetUpload()" class="px-4 py-3 border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition text-sm">
+        초기화
+      </button>
+    </div>
+  </div>
+
+  <!-- 분석 로딩 -->
+  <div id="loadingSection" class="hidden bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
+    <div class="animate-spin text-4xl mb-3">🔄</div>
+    <p class="text-gray-600 font-medium">AI가 음식을 분석하고 있습니다...</p>
+    <p class="text-xs text-gray-400 mt-1">Gemini Vision이 칼로리와 영양소를 계산하는 중</p>
+  </div>
+
+  <!-- 분석 결과 -->
+  <div id="resultSection" class="hidden space-y-4">
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-gray-700">🎯 분석 결과</h2>
+        <span id="confidenceBadge" class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">신뢰도: 보통</span>
+      </div>
+
+      <!-- AI 설명 -->
+      <div class="bg-emerald-50 rounded-xl p-4 mb-4">
+        <p class="text-sm text-emerald-800" id="analysisText"></p>
+      </div>
+
+      <!-- 영양소 요약 -->
+      <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="text-center bg-gray-50 rounded-xl py-3">
+          <p class="text-xs text-gray-400">칼로리</p>
+          <p class="text-lg font-bold text-emerald-600" id="resultCalories">0</p>
+          <p class="text-xs text-gray-400">kcal</p>
+        </div>
+        <div class="text-center bg-gray-50 rounded-xl py-3">
+          <p class="text-xs text-gray-400">탄수화물</p>
+          <p class="text-lg font-bold text-blue-500" id="resultCarbs">0</p>
+          <p class="text-xs text-gray-400">g</p>
+        </div>
+        <div class="text-center bg-gray-50 rounded-xl py-3">
+          <p class="text-xs text-gray-400">단백질</p>
+          <p class="text-lg font-bold text-orange-500" id="resultProtein">0</p>
+          <p class="text-xs text-gray-400">g</p>
+        </div>
+        <div class="text-center bg-gray-50 rounded-xl py-3">
+          <p class="text-xs text-gray-400">지방</p>
+          <p class="text-lg font-bold text-purple-500" id="resultFat">0</p>
+          <p class="text-xs text-gray-400">g</p>
+        </div>
+      </div>
+
+      <!-- 인식된 음식 목록 -->
+      <div id="detectedFoods" class="space-y-2 mb-4"></div>
+
+      <!-- 저장 버튼 -->
+      <div class="flex gap-2">
+        <button onclick="saveAnalysisResult()" id="saveResultBtn"
+          class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-medium transition">
+          💾 식사 기록으로 저장
+        </button>
+        <button onclick="resetUpload()"
+          class="px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm">
+          다시 분석
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 사용 팁 -->
+  <div class="bg-blue-50 rounded-2xl p-5 border border-blue-100">
+    <h3 class="font-semibold text-blue-800 mb-2">📌 더 정확한 분석을 위한 팁</h3>
+    <ul class="text-sm text-blue-700 space-y-1">
+      <li>• 음식 전체가 보이도록 위에서 찍어주세요</li>
+      <li>• 밝은 곳에서 촬영하면 인식률이 높아집니다</li>
+      <li>• 여러 음식이 섞여 있으면 각각 따로 찍어보세요</li>
+      <li>• API 키가 없으면 데모 결과가 표시됩니다</li>
+    </ul>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedFile = null;
+  let analysisResult = null;
+
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) setFile(file);
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    document.getElementById('dropZone').classList.remove('border-emerald-400');
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) setFile(file);
+  }
+
+  function setFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const preview = document.getElementById('previewImg');
+      preview.src = e.target.result;
+      preview.classList.remove('hidden');
+      document.getElementById('dropContent').classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('resultSection').classList.add('hidden');
+  }
+
+  function resetUpload() {
+    selectedFile = null;
+    analysisResult = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('previewImg').classList.add('hidden');
+    document.getElementById('dropContent').classList.remove('hidden');
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('loadingSection').classList.add('hidden');
+  }
+
+  async function analyzeImage() {
+    if (!selectedFile) return;
+    document.getElementById('loadingSection').classList.remove('hidden');
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('analyzeBtn').disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('meal_date', document.getElementById('analyzeDate').value);
+    formData.append('meal_type', document.getElementById('analyzeMealType').value);
+
+    try {
+      const res = await fetch('/api/analysis/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      document.getElementById('loadingSection').classList.add('hidden');
+
+      if (data.success) {
+        analysisResult = data;
+        showResult(data.analysis);
+        showToast('AI 분석 완료! 결과를 확인하세요 ✅');
+      } else {
+        showToast('분석 실패: ' + (data.detail || '오류'), 'error');
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    } catch (e) {
+      document.getElementById('loadingSection').classList.add('hidden');
+      showToast('서버 오류가 발생했습니다', 'error');
+      document.getElementById('analyzeBtn').disabled = false;
+    }
+  }
+
+  function showResult(analysis) {
+    document.getElementById('resultSection').classList.remove('hidden');
+    document.getElementById('analysisText').textContent = analysis.analysis_text || '';
+    document.getElementById('resultCalories').textContent = Math.round(analysis.total_calories || 0);
+    document.getElementById('resultCarbs').textContent = (analysis.total_carbohydrates || 0).toFixed(1);
+    document.getElementById('resultProtein').textContent = (analysis.total_protein || 0).toFixed(1);
+    document.getElementById('resultFat').textContent = (analysis.total_fat || 0).toFixed(1);
+
+    const badge = document.getElementById('confidenceBadge');
+    badge.textContent = '신뢰도: ' + (analysis.confidence || '보통');
+    const colors = { '높음': 'bg-emerald-100 text-emerald-700', '보통': 'bg-yellow-100 text-yellow-700', '낮음': 'bg-red-100 text-red-700' };
+    badge.className = 'text-xs px-2 py-1 rounded-full ' + (colors[analysis.confidence] || colors['보통']);
+
+    const foods = analysis.foods || [];
+    document.getElementById('detectedFoods').innerHTML = foods.map(f => `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-medium text-gray-800">${escapeHtml(String(f.name))}</p>
+          <p class="text-xs text-gray-400">약 ${escapeHtml(String(f.amount))}g</p>
+        </div>
+        <p class="text-sm font-bold text-emerald-600">${Math.round(f.calories)} kcal</p>
+      </div>
+    `).join('') || '<p class="text-sm text-gray-400 text-center">인식된 음식 정보 없음</p>';
+  }
+
+  async function saveAnalysisResult() {
+    if (!analysisResult) return;
+    showToast('이미 식사 기록이 저장되었습니다! 대시보드를 확인하세요 🎉');
+    setTimeout(() => window.location.href = '/', 1500);
+  }
+</script>
+{% endblock %}

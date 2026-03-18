@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+{% block title %}식사 기록{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 헤더 -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">식사 기록</h1>
+      <p class="text-gray-500 text-sm mt-1">음식을 검색하여 식사를 기록하세요</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="date" id="mealDate" value="{{ meal_date }}"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+    </div>
+  </div>
+
+  <!-- 식사 타입 선택 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-3">식사 종류</h2>
+    <div class="grid grid-cols-4 gap-2">
+      {% for t, icon in [('아침','🌅'),('점심','☀️'),('저녁','🌙'),('간식','🍎')] %}
+      <button onclick="selectMealType('{{ t }}')"
+        id="type_{{ t }}"
+        class="meal-type-btn py-3 rounded-xl border-2 border-gray-100 text-sm font-medium text-gray-600 hover:border-emerald-300 transition flex flex-col items-center gap-1">
+        <span class="text-2xl">{{ icon }}</span>
+        {{ t }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 음식 검색 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-3">음식 검색</h2>
+    <div class="flex gap-2 mb-4">
+      <div class="flex-1 relative">
+        <input type="text" id="foodSearch" placeholder="음식명을 입력하세요 (예: 비빔밥, 김치찌개)"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+        <span class="absolute right-3 top-3 text-gray-300 text-lg">🔍</span>
+      </div>
+      <button onclick="searchFoods()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl text-sm font-medium transition">
+        검색
+      </button>
+    </div>
+
+    <!-- 즐겨찾기 -->
+    <div id="favoritesSection">
+      <p class="text-xs text-gray-400 mb-2">⭐ 즐겨찾기</p>
+      <div id="favoritesList" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- 검색 결과 -->
+    <div id="searchResults" class="hidden mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+  </div>
+
+  <!-- 현재 식사 목록 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-gray-700">추가된 음식 <span id="itemCount" class="text-sm text-gray-400">(0개)</span></h2>
+      <div class="text-right">
+        <p class="text-sm text-gray-500">총 칼로리</p>
+        <p class="text-xl font-bold text-emerald-600"><span id="totalCalories">0</span> kcal</p>
+      </div>
+    </div>
+
+    <div id="mealItemsList" class="space-y-2 min-h-16">
+      <p class="text-sm text-gray-300 text-center py-4" id="emptyMsg">검색하여 음식을 추가하세요</p>
+    </div>
+
+    <!-- 영양소 합계 -->
+    <div id="nutritionSummary" class="hidden mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-3 text-center">
+      <div>
+        <p class="text-xs text-gray-400">탄수화물</p>
+        <p class="font-bold text-blue-500"><span id="totalCarbs">0</span>g</p>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400">단백질</p>
+        <p class="font-bold text-orange-500"><span id="totalProtein">0</span>g</p>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400">지방</p>
+        <p class="font-bold text-purple-500"><span id="totalFat">0</span>g</p>
+      </div>
+    </div>
+
+    <!-- 저장 버튼 -->
+    <div class="mt-4 flex gap-2">
+      <button onclick="saveMeal()" id="saveBtn"
+        class="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-medium transition" disabled>
+        💾 식사 저장
+      </button>
+      <a href="/analyze" class="flex items-center justify-center px-4 py-3 border border-emerald-300 text-emerald-600 rounded-xl hover:bg-emerald-50 transition text-sm">
+        📸 사진으로
+      </a>
+    </div>
+  </div>
+
+  <!-- 오늘 기록 현황 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-3">오늘 섭취 현황</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {% for mtype, icon in [('아침','🌅'),('점심','☀️'),('저녁','🌙'),('간식','🍎')] %}
+      {% set meal = daily.meals_by_type[mtype] %}
+      <div class="border rounded-xl p-3 {% if meal %}border-emerald-200 bg-emerald-50{% else %}border-gray-100{% endif %}">
+        <p class="text-sm font-medium text-gray-700">{{ icon }} {{ mtype }}</p>
+        {% if meal %}
+        <p class="text-lg font-bold text-emerald-600">{{ meal.total_calories | int }} kcal</p>
+        <p class="text-xs text-gray-500">{{ meal.items | length }}가지 음식</p>
+        {% else %}
+        <p class="text-sm text-gray-300">미기록</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between">
+      <span class="text-sm text-gray-600">일일 합계</span>
+      <span class="font-bold text-gray-800">{{ daily.total_calories | int }} kcal</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- 음식 추가 모달 -->
+<div id="addFoodModal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+    <h3 class="font-bold text-gray-800 mb-1" id="modalFoodName"></h3>
+    <p class="text-xs text-gray-400 mb-4" id="modalFoodInfo"></p>
+    <div class="mb-4">
+      <label class="text-sm text-gray-600 block mb-1">섭취량 (g)</label>
+      <input type="number" id="foodAmount" value="100" min="1" max="2000"
+        class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        oninput="updateModalNutrition()" />
+    </div>
+    <div class="grid grid-cols-3 gap-2 mb-5 text-center text-sm">
+      <div class="bg-emerald-50 rounded-lg py-2">
+        <p class="text-xs text-gray-400">칼로리</p>
+        <p class="font-bold text-emerald-600" id="modalCalories">0</p>
+      </div>
+      <div class="bg-blue-50 rounded-lg py-2">
+        <p class="text-xs text-gray-400">탄수화물</p>
+        <p class="font-bold text-blue-500" id="modalCarbs">0g</p>
+      </div>
+      <div class="bg-orange-50 rounded-lg py-2">
+        <p class="text-xs text-gray-400">단백질</p>
+        <p class="font-bold text-orange-500" id="modalProtein">0g</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg hover:bg-gray-50 transition">취소</button>
+      <button onclick="confirmAddFood()" class="flex-1 bg-emerald-500 text-white py-2 rounded-lg hover:bg-emerald-600 transition">추가</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedMealType = '아침';
+  let mealItems = [];
+  let currentFood = null;
+  const mealDate = document.getElementById('mealDate');
+
+  // 날짜 변경
+  mealDate.addEventListener('change', () => {
+    window.location.href = '/log?meal_date=' + mealDate.value;
+  });
+
+  // 초기 즐겨찾기 로드
+  loadFavorites();
+
+  function selectMealType(type) {
+    selectedMealType = type;
+    document.querySelectorAll('.meal-type-btn').forEach(btn => {
+      btn.classList.remove('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+      btn.classList.add('border-gray-100', 'text-gray-600');
+    });
+    const btn = document.getElementById('type_' + type);
+    btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+    btn.classList.remove('border-gray-100', 'text-gray-600');
+  }
+
+  // 기본 식사 타입 선택
+  selectMealType('아침');
+
+  async function loadFavorites() {
+    try {
+      const res = await fetch('/api/foods/favorites');
+      const foods = await res.json();
+      const container = document.getElementById('favoritesList');
+      if (foods.length === 0) {
+        container.innerHTML = '<p class="text-xs text-gray-300">즐겨찾기한 음식이 없습니다</p>';
+        return;
+      }
+      container.innerHTML = foods.map(f =>
+        `<button onclick="openModal(${JSON.stringify(f).replace(/"/g, '&quot;')})"
+          class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-full border border-emerald-200 transition">
+          ⭐ ${escapeHtml(String(f.name))}
+        </button>`
+      ).join('');
+    } catch (e) { console.error(e); }
+  }
+
+  async function searchFoods() {
+    const q = document.getElementById('foodSearch').value.trim();
+    if (!q) return;
+    const res = await fetch(`/api/foods/search?q=${encodeURIComponent(q)}`);
+    const foods = await res.json();
+    const container = document.getElementById('searchResults');
+    container.classList.remove('hidden');
+    if (foods.length === 0) {
+      container.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">검색 결과가 없습니다</p>';
+      return;
+    }
+    container.innerHTML = foods.map(f => `
+      <div class="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50 cursor-pointer transition"
+        onclick="openModal(${JSON.stringify(f).replace(/"/g, '&quot;')})">
+        <div>
+          <p class="text-sm font-medium text-gray-800">${escapeHtml(String(f.name))}</p>
+          <p class="text-xs text-gray-400">${escapeHtml(String(f.category || ''))} · ${escapeHtml(String(f.serving_size))}${escapeHtml(String(f.serving_unit))} 기준</p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm font-bold text-emerald-600">${f.calories} kcal</p>
+          <button class="text-xs text-gray-300 hover:text-yellow-400"
+            onclick="event.stopPropagation(); toggleFavorite(${f.id}, this)">
+            ${f.is_favorite ? '⭐' : '☆'}
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('foodSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchFoods();
+  });
+
+  function openModal(food) {
+    currentFood = food;
+    document.getElementById('modalFoodName').textContent = food.name;
+    document.getElementById('modalFoodInfo').textContent =
+      `${food.category || ''} · 기준량 ${food.serving_size}${food.serving_unit}`;
+    document.getElementById('foodAmount').value = food.serving_size;
+    updateModalNutrition();
+    document.getElementById('addFoodModal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('addFoodModal').classList.add('hidden');
+    currentFood = null;
+  }
+
+  function updateModalNutrition() {
+    if (!currentFood) return;
+    const amount = parseFloat(document.getElementById('foodAmount').value) || 0;
+    const ratio = amount / currentFood.serving_size;
+    document.getElementById('modalCalories').textContent = Math.round(currentFood.calories * ratio) + ' kcal';
+    document.getElementById('modalCarbs').textContent = (currentFood.carbohydrates * ratio).toFixed(1) + 'g';
+    document.getElementById('modalProtein').textContent = (currentFood.protein * ratio).toFixed(1) + 'g';
+  }
+
+  function confirmAddFood() {
+    if (!currentFood) return;
+    const amount = parseFloat(document.getElementById('foodAmount').value) || currentFood.serving_size;
+    const ratio = amount / currentFood.serving_size;
+    mealItems.push({
+      food_id: currentFood.id,
+      food_name: currentFood.name,
+      amount: amount,
+      calories: parseFloat((currentFood.calories * ratio).toFixed(1)),
+      carbohydrates: parseFloat((currentFood.carbohydrates * ratio).toFixed(1)),
+      protein: parseFloat((currentFood.protein * ratio).toFixed(1)),
+      fat: parseFloat((currentFood.fat * ratio).toFixed(1)),
+    });
+    closeModal();
+    renderMealItems();
+  }
+
+  function renderMealItems() {
+    const list = document.getElementById('mealItemsList');
+    const empty = document.getElementById('emptyMsg');
+    const saveBtn = document.getElementById('saveBtn');
+
+    if (mealItems.length === 0) {
+      list.innerHTML = '<p class="text-sm text-gray-300 text-center py-4" id="emptyMsg">검색하여 음식을 추가하세요</p>';
+      saveBtn.disabled = true;
+      document.getElementById('nutritionSummary').classList.add('hidden');
+      return;
+    }
+
+    list.innerHTML = mealItems.map((item, idx) => `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-medium text-gray-800">${escapeHtml(String(item.food_name))}</p>
+          <p class="text-xs text-gray-400">${escapeHtml(String(item.amount))}g · ${escapeHtml(String(item.calories))} kcal</p>
+        </div>
+        <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-500 text-lg ml-2">×</button>
+      </div>
+    `).join('');
+
+    const totCal = mealItems.reduce((s, i) => s + i.calories, 0);
+    const totCarbs = mealItems.reduce((s, i) => s + i.carbohydrates, 0);
+    const totProtein = mealItems.reduce((s, i) => s + i.protein, 0);
+    const totFat = mealItems.reduce((s, i) => s + i.fat, 0);
+
+    document.getElementById('totalCalories').textContent = Math.round(totCal);
+    document.getElementById('totalCarbs').textContent = totCarbs.toFixed(1);
+    document.getElementById('totalProtein').textContent = totProtein.toFixed(1);
+    document.getElementById('totalFat').textContent = totFat.toFixed(1);
+    document.getElementById('itemCount').textContent = `(${mealItems.length}개)`;
+    document.getElementById('nutritionSummary').classList.remove('hidden');
+    saveBtn.disabled = false;
+  }
+
+  function removeItem(idx) {
+    mealItems.splice(idx, 1);
+    renderMealItems();
+  }
+
+  async function saveMeal() {
+    if (mealItems.length === 0) return;
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '저장 중...';
+    try {
+      const res = await fetch('/api/meals/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meal_date: mealDate.value,
+          meal_type: selectedMealType,
+          items: mealItems,
+        }),
+      });
+      if (res.ok) {
+        showToast('식사가 저장되었습니다! 🎉');
+        mealItems = [];
+        renderMealItems();
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        const err = await res.json();
+        showToast('저장 실패: ' + (err.detail || '오류'), 'error');
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 식사 저장';
+      }
+    } catch (e) {
+      showToast('저장 실패: 서버 오류', 'error');
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 식사 저장';
+    }
+  }
+
+  async function toggleFavorite(foodId, btn) {
+    const res = await fetch(`/api/foods/${foodId}/favorite`, { method: 'PATCH' });
+    if (res.ok) {
+      const food = await res.json();
+      btn.textContent = food.is_favorite ? '⭐' : '☆';
+      loadFavorites();
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}목표 설정{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-2xl mx-auto">
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">🎯 목표 설정</h1>
+    <p class="text-gray-500 text-sm mt-1">신체 정보와 목표를 설정하면 맞춤 칼로리를 계산해드립니다</p>
+  </div>
+
+  <!-- 현재 목표 표시 -->
+  {% if goal %}
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+    <p class="text-sm text-emerald-600 font-medium mb-2">현재 활성 목표</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="text-center">
+        <p class="text-xs text-gray-500">목표 타입</p>
+        <p class="font-bold text-emerald-700">{{ goal.goal_type }}</p>
+      </div>
+      <div class="text-center">
+        <p class="text-xs text-gray-500">목표 칼로리</p>
+        <p class="font-bold text-emerald-700">{{ goal.daily_calories | int }} kcal</p>
+      </div>
+      <div class="text-center">
+        <p class="text-xs text-gray-500">단백질</p>
+        <p class="font-bold text-emerald-700">{{ goal.daily_protein | int }}g</p>
+      </div>
+      <div class="text-center">
+        <p class="text-xs text-gray-500">활동량</p>
+        <p class="font-bold text-emerald-700">{{ goal.activity_level }}</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 신체 정보 입력 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-4">신체 정보</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">성별</label>
+        <select id="gender" class="form-input" onchange="autoCalculate()">
+          <option value="남성">남성</option>
+          <option value="여성">여성</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">나이</label>
+        <input type="number" id="age" placeholder="25" min="10" max="100" class="form-input"
+          value="{{ goal.age or '' }}" oninput="autoCalculate()" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">키 (cm)</label>
+        <input type="number" id="height" placeholder="170" min="100" max="250" class="form-input"
+          value="{{ goal.height or '' }}" oninput="autoCalculate()" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">현재 체중 (kg)</label>
+        <input type="number" id="weight" placeholder="65" min="20" max="300" class="form-input"
+          value="{{ goal.weight or '' }}" oninput="autoCalculate()" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">목표 체중 (kg)</label>
+        <input type="number" id="targetWeight" placeholder="60" min="20" max="300" class="form-input"
+          value="{{ goal.target_weight or '' }}" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">활동량</label>
+        <select id="activityLevel" class="form-input" onchange="autoCalculate()">
+          <option value="거의없음">거의 없음 (좌식)</option>
+          <option value="가벼움">가벼움 (주 1-2회)</option>
+          <option value="보통" {% if not goal or goal.activity_level == '보통' %}selected{% endif %}>보통 (주 3-5회)</option>
+          <option value="활발함" {% if goal and goal.activity_level == '활발함' %}selected{% endif %}>활발함 (주 6-7회)</option>
+          <option value="매우활발함" {% if goal and goal.activity_level == '매우활발함' %}selected{% endif %}>매우 활발함</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 목표 타입 선택 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <h2 class="font-semibold text-gray-700 mb-4">목표 타입</h2>
+    <div class="grid grid-cols-3 gap-3">
+      <button onclick="selectGoalType('다이어트')" id="goal_다이어트"
+        class="goal-type-btn py-4 rounded-xl border-2 border-gray-100 text-sm font-medium flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">📉</span>
+        <span class="text-gray-700">다이어트</span>
+        <span class="text-xs text-gray-400">-20% 칼로리</span>
+      </button>
+      <button onclick="selectGoalType('유지')" id="goal_유지"
+        class="goal-type-btn py-4 rounded-xl border-2 border-emerald-400 bg-emerald-50 text-sm font-medium flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">⚖️</span>
+        <span class="text-emerald-700">유지</span>
+        <span class="text-xs text-emerald-500">현재 체중 유지</span>
+      </button>
+      <button onclick="selectGoalType('벌크업')" id="goal_벌크업"
+        class="goal-type-btn py-4 rounded-xl border-2 border-gray-100 text-sm font-medium flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">📈</span>
+        <span class="text-gray-700">벌크업</span>
+        <span class="text-xs text-gray-400">+15% 칼로리</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 자동 계산 결과 / 직접 입력 -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-gray-700">목표 영양소</h2>
+      <button onclick="autoCalculate()"
+        class="text-xs text-emerald-500 hover:text-emerald-600 border border-emerald-200 px-3 py-1 rounded-lg">
+        자동 계산
+      </button>
+    </div>
+
+    <!-- 계산 결과 배너 -->
+    <div id="calcResult" class="hidden bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
+      <span id="calcResultText"></span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="text-sm text-gray-600 block mb-1">일일 목표 칼로리 (kcal)</label>
+        <input type="number" id="dailyCalories" placeholder="2000" min="500" max="6000" class="form-input text-lg font-bold"
+          value="{{ goal.daily_calories | int if goal else 2000 }}" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">탄수화물 (g)</label>
+        <input type="number" id="dailyCarbs" placeholder="250" class="form-input"
+          value="{{ goal.daily_carbohydrates | int if goal else 250 }}" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">단백질 (g)</label>
+        <input type="number" id="dailyProtein" placeholder="60" class="form-input"
+          value="{{ goal.daily_protein | int if goal else 60 }}" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-600 block mb-1">지방 (g)</label>
+        <input type="number" id="dailyFat" placeholder="55" class="form-input"
+          value="{{ goal.daily_fat | int if goal else 55 }}" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 저장 버튼 -->
+  <button onclick="saveGoal()"
+    class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-bold text-lg transition shadow-sm">
+    🎯 목표 저장하기
+  </button>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedGoalType = '{{ goal.goal_type if goal else "유지" }}';
+
+  function selectGoalType(type) {
+    selectedGoalType = type;
+    ['다이어트', '유지', '벌크업'].forEach(t => {
+      const btn = document.getElementById('goal_' + t);
+      if (t === type) {
+        btn.classList.add('border-emerald-400', 'bg-emerald-50');
+        btn.classList.remove('border-gray-100');
+        btn.querySelector('span.text-gray-700') && (btn.querySelector('span.text-gray-700').classList.add('text-emerald-700'));
+      } else {
+        btn.classList.remove('border-emerald-400', 'bg-emerald-50');
+        btn.classList.add('border-gray-100');
+      }
+    });
+    autoCalculate();
+  }
+
+  async function autoCalculate() {
+    const weight = parseFloat(document.getElementById('weight').value);
+    const height = parseFloat(document.getElementById('height').value);
+    const age = parseInt(document.getElementById('age').value);
+    const gender = document.getElementById('gender').value;
+    const activity = document.getElementById('activityLevel').value;
+
+    if (!weight || !height || !age) return;
+
+    try {
+      const params = new URLSearchParams({ weight, height, age, gender, activity_level: activity, goal_type: selectedGoalType });
+      const res = await fetch(`/api/goals/calculate?${params}`);
+      const data = await res.json();
+
+      document.getElementById('dailyCalories').value = Math.round(data.recommended_calories);
+      document.getElementById('dailyCarbs').value = Math.round(data.recommended_carbohydrates);
+      document.getElementById('dailyProtein').value = Math.round(data.recommended_protein);
+      document.getElementById('dailyFat').value = Math.round(data.recommended_fat);
+
+      const resultDiv = document.getElementById('calcResult');
+      document.getElementById('calcResultText').textContent =
+        `기초대사량 ${Math.round(data.bmr)} kcal · 일일소모량 ${Math.round(data.tdee)} kcal → ${selectedGoalType} 목표 ${Math.round(data.recommended_calories)} kcal 권장`;
+      resultDiv.classList.remove('hidden');
+    } catch (e) { console.error(e); }
+  }
+
+  async function saveGoal() {
+    const payload = {
+      goal_type: selectedGoalType,
+      daily_calories: parseFloat(document.getElementById('dailyCalories').value) || 2000,
+      daily_carbohydrates: parseFloat(document.getElementById('dailyCarbs').value) || 250,
+      daily_protein: parseFloat(document.getElementById('dailyProtein').value) || 60,
+      daily_fat: parseFloat(document.getElementById('dailyFat').value) || 55,
+      weight: parseFloat(document.getElementById('weight').value) || null,
+      target_weight: parseFloat(document.getElementById('targetWeight').value) || null,
+      height: parseFloat(document.getElementById('height').value) || null,
+      age: parseInt(document.getElementById('age').value) || null,
+      gender: document.getElementById('gender').value,
+      activity_level: document.getElementById('activityLevel').value,
+    };
+
+    try {
+      const res = await fetch('/api/goals/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        showToast('목표가 저장되었습니다! 🎯');
+        setTimeout(() => window.location.href = '/', 1200);
+      } else {
+        const err = await res.json();
+        showToast('저장 실패: ' + (err.detail || '오류'), 'error');
+      }
+    } catch (e) {
+      showToast('서버 오류', 'error');
+    }
+  }
+
+  // 초기 목표 타입 선택 표시
+  selectGoalType(selectedGoalType);
+</script>
+{% endblock %}
