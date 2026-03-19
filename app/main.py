@@ -12,7 +12,8 @@ from sqlalchemy import select
 from app.config import APP_TITLE, APP_VERSION, UPLOAD_DIR
 from app.database import init_db, AsyncSessionLocal
 from app.models.food import Food
-from app.routers import pages, foods, meals, analysis, goals, reports, water, exercise, weight, recommendations
+from app.routers import pages, foods, meals, analysis, goals, reports, water, exercise, weight, recommendations, nutrition_report
+from app.routers import payments
 
 
 @asynccontextmanager
@@ -100,7 +101,9 @@ app.include_router(water.router)
 app.include_router(exercise.router)
 app.include_router(weight.router)
 app.include_router(recommendations.router)
-app.include_router(pages.router)  # HTML 페이지는 마지막에
+app.include_router(payments.router)
+app.include_router(pages.router)
+app.include_router(nutrition_report.router, prefix="/api/v1")  # HTML 페이지는 마지막에
 
 
 if __name__ == "__main__":
